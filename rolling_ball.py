@@ -26,23 +26,34 @@ from scipy import interpolate
 
 def sq_norm(v):
     """squared norm"""
-    return np.linalg.norm(v)**2
+    return (v**2).sum(0)
 
 
 def circumcircle(points, simplex):
     """Get the circumcenter and circum radius of all the simplices, works for 2D only
-    
+
     Compute the circumcenter and circumradius of a triangle (see their definitions
-    https://en.wikipedia.org/wiki/Circumscribed_circle#Circumcircle_equations)"""
-    A = [points[simplex[k]] for k in range(3)]
+    https://en.wikipedia.org/wiki/Circumscribed_circle#Circumcircle_equations)
+
+    http://mathworld.wolfram.com/Circumcircle.html"""
+    A = [points[k] for k in simplex]
     M = [[1.0] * 4]
     M += [[sq_norm(A[k]), A[k][0], A[k][1], 1.0] for k in range(3)]
     M = np.asarray(M, dtype=float)
-    S = np.array([0.5 * np.linalg.det(M[1:, [0, 2, 3]]), -0.5 * np.linalg.det(M[1:, [0, 1, 3]])])
+    # M is equation (5) at mathworld
+    # bx is (6)
+    bx = -np.linalg.det(M[1:, [0, 2, 3]])
+    # by is (7)
+    by = np.linalg.det(M[1:, [0, 1, 3]])
+    # eq. (4)
     a = np.linalg.det(M[1:, 1:])
-    b = np.linalg.det(M[1:, [0, 1, 2]])
-    # center=S/a, radius=np.sqrt(b/a+sq_norm(S)/a**2)
-    return S / a, np.array([np.sqrt(b / a + sq_norm(S) / a**2)])
+    # eq. (8)
+    c = -np.linalg.det(M[1:, :-1])
+    # eqns. (11) and (12)
+    center = np.array([-bx, -by]) / a / 2
+    # eqn. (13)
+    radius = np.sqrt(bx**2 + by**2 - 4 * a * c) / 2 / np.abs(a)
+    return center, radius
 
 
 def get_alpha_complex(alpha, points, simplices):
@@ -98,6 +109,8 @@ def rolling_ball_filter(data, ball_radius, roll_along=-1, top=True,
 if __name__ == '__main__':
     # import plotting
     import matplotlib.pyplot as plt
+    # remove randomness
+    np.random.seed(42)
     # generate toy data
     x = np.linspace(-2 * np.pi, 2 * np.pi, 256)
     y = np.sin(10 * x)
