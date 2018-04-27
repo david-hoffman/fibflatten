@@ -36,23 +36,24 @@ def circumcircle(points, simplex):
     https://en.wikipedia.org/wiki/Circumscribed_circle#Circumcircle_equations)
 
     http://mathworld.wolfram.com/Circumcircle.html"""
+    d = len(simplex)
     A = [points[k] for k in simplex]
-    M = [[1.0] * 4]
-    M += [[sq_norm(A[k]), A[k][0], A[k][1], 1.0] for k in range(3)]
+    M = [[1.0] * (d + 1)]
+    M += [[sq_norm(A[k]), A[k][0], A[k][1], 1.0] for k in range(d)]
     M = np.asarray(M, dtype=float)
-    # M is equation (5) at mathworld
+    # M is equation (2) at mathworld
+    # eq. (4)
+    a = np.linalg.det(M[1:, 1:])
     # bx is (6)
     bx = -np.linalg.det(M[1:, [0, 2, 3]])
     # by is (7)
     by = np.linalg.det(M[1:, [0, 1, 3]])
-    # eq. (4)
-    a = np.linalg.det(M[1:, 1:])
     # eq. (8)
     c = -np.linalg.det(M[1:, :-1])
     # eqns. (11) and (12)
     center = np.array([-bx, -by]) / a / 2
     # eqn. (13)
-    radius = np.sqrt(bx**2 + by**2 - 4 * a * c) / 2 / np.abs(a)
+    radius = np.sqrt(sq_norm(center) - c / a)
     return center, radius
 
 
