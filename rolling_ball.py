@@ -4,6 +4,14 @@
 """
 Rolling ball filter
 
+There are two separate implenetations in this file.
+
+One is _exact_ and uses the concept of alpha shapes to estimate the background, but it is slow
+and is only implemented in 2D so far.
+
+The other is an approximation based on top hat transforms https://en.wikipedia.org/wiki/Top-hat_transform.https
+It is fast and relatively accurate so long as the slope is not too steep in the image.
+
 References
 
 - https://media.nature.com/original/nature-assets/srep/2016/160725/srep30179/extref/srep30179-s1.pdf
@@ -22,6 +30,8 @@ Copyright (c) 2018, David Hoffman
 import numpy as np
 from scipy import spatial
 from scipy import interpolate
+import scipy.ndimage as ndi
+from scipy.ndimage._ni_support import _normalize_sequence
 
 
 def sq_norm(v):
@@ -70,9 +80,9 @@ def get_alpha_complex(alpha, points, simplices):
     return alpha_complex, above_right
 
 
-def rolling_ball_filter(data, ball_radius, roll_along=-1, top=True,
-                        interpolator=interpolate.interp1d, **kwargs):
-    """Rolling ball filter
+def rolling_ball_filter_accurate(data, ball_radius, roll_along=-1, top=True,
+                                 interpolator=interpolate.interp1d, **kwargs):
+    """Rolling ball filter implemented with alpha shapes
     
     Parameters
     ----------
@@ -91,7 +101,8 @@ def rolling_ball_filter(data, ball_radius, roll_along=-1, top=True,
     Returns
     -------
     data : ndarray (n, d)
-        Smoothed data"""
+        Smoothed data
+    """
     n, d = data.shape
     tri = spatial.Delaunay(data)
     alpha_complex, above_right = get_alpha_complex(ball_radius, tri.points, tri.simplices)
@@ -107,6 +118,55 @@ def rolling_ball_filter(data, ball_radius, roll_along=-1, top=True,
     return x, interp(x)
 
 
+def rolling_ball_filter(data, ball_radius, spacing=None, top=False, **kwargs):
+    """Rolling ball filter implemented with morphology operations
+
+    This implenetation is very similar to that in ImageJ and uses a top hat transform
+    with a ball shaped structuring element
+    https://en.wikipedia.org/wiki/Top-hat_transform
+
+    Parameters
+    ----------
+    data : ndarray
+        image data (assumed to be on a regular grid)
+    ball_radius : float
+        the radius of the ball to roll
+    spacing : int or sequence
+        the spacing of the image data
+    top : bool
+        whether to roll the ball on the top or bottom of the data
+    kwargs : key word arguments
+        these are passed to the ndimage morphological operations
+
+    Returns
+    -------
+    data_nb : ndarray
+        data with background subtracted
+    bg : ndarray
+        background that was subtracted from the data
+    """
+    ndim = data.ndim
+    if spacing is None:
+        spacing = np.ones_like(ndim)
+    else:
+        spacing = _normalize_sequence(spacing, ndim)
+        
+    radius = np.asarray(_normalize_sequence(ball_radius, ndim))
+    mesh = np.array(np.meshgrid(*[np.arange(-r, r + s, s) for r, s in zip(radius, spacing)], indexing="ij"))
+    structure = 2 * np.sqrt(1 - ((mesh / radius.reshape(-1, *((1,) * ndim)))**2).sum(0))
+    structure[~np.isfinite(structure)] = 0
+    if not top:
+        # ndi.white_tophat(y, structure=structure, output=background)
+        background = ndi.grey_erosion(data, structure=structure, **kwargs)
+        background = ndi.grey_dilation(background, structure=structure, **kwargs)
+    else:
+        # ndi.black_tophat(y, structure=structure, output=background)
+        background = ndi.grey_dilation(data, structure=structure, **kwargs)
+        background = ndi.grey_erosion(background, structure=structure, **kwargs)
+        
+    return data - background, background
+
+
 if __name__ == '__main__':
     # import plotting
     import matplotlib.pyplot as plt
@@ -119,13 +179,18 @@ if __name__ == '__main__':
     y += np.poly1d(np.random.randn(3))(x) * 0.01
 
     ball_r = 0.5
-    X_top, Y_top = rolling_ball_filter(np.array((x, y)).T, ball_r)
-    X_bottom, Y_bottom = rolling_ball_filter(np.array((x, y)).T, ball_r, top=False)
+    X_top, Y_top = rolling_ball_filter_accurate(np.array((x, y)).T, ball_r)
+    X_bottom, Y_bottom = rolling_ball_filter_accurate(np.array((x, y)).T, ball_r, top=False)
+    spacing = x[1] - x[0]
+    _, Yt_fast = rolling_ball_filter(y, ball_r, spacing, top=True)
+    _, Yb_fast = rolling_ball_filter(y, ball_r, spacing, top=False)
 
     fig, ax = plt.subplots()
     ax.plot(x, y, label="Data")
     ax.plot(X_top, Y_top, label="Rolled on top")
     ax.plot(X_bottom, Y_bottom, label="Rolled on bottom")
+    ax.plot(x, Yt_fast, label="Rolled on top fast")
+    ax.plot(x, Yb_fast, label="Rolled on bottom fast")
     ax.legend()
     ax.set_title("Rolling ball filter with radius = {}".format(ball_r))
 
