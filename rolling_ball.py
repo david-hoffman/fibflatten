@@ -145,16 +145,21 @@ def rolling_ball_filter(data, ball_radius, spacing=None, top=False, **kwargs):
     bg : ndarray
         background that was subtracted from the data
     """
+    # get dimension of data
     ndim = data.ndim
+    # set spacing to 1 if not specified
     if spacing is None:
-        spacing = np.ones_like(ndim)
+        spacing = np.ones(ndim)
     else:
         spacing = _normalize_sequence(spacing, ndim)
-        
+    # arrayify radius
     radius = np.asarray(_normalize_sequence(ball_radius, ndim))
+    # generate the mesh for the sphere
     mesh = np.array(np.meshgrid(*[np.arange(-r, r + s, s) for r, s in zip(radius, spacing)], indexing="ij"))
+    # make the sphere and replace nan with 0
     structure = 2 * np.sqrt(1 - ((mesh / radius.reshape(-1, *((1,) * ndim)))**2).sum(0))
     structure[~np.isfinite(structure)] = 0
+    # roll ball on top or bottom dpending on request
     if not top:
         # ndi.white_tophat(y, structure=structure, output=background)
         background = ndi.grey_erosion(data, structure=structure, **kwargs)
