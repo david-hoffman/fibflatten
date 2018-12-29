@@ -27,7 +27,13 @@ def find_edge_line(d, max_percentage=0.25, win=11, order=3, poly=3, invert=False
     """Find the "edge" along a given line"""
     if max_percentage < 0.0:
         return np.nan
-    deriv = scipy.signal.savgol_filter(d, win, poly, 1)
+    nans = np.isfinite(d)
+    try:
+        deriv_temp = scipy.signal.savgol_filter(d[nans], win, poly, 1)
+    except ValueError:
+        return np.nan
+    deriv = np.zeros(len(d))
+    deriv[nans] = deriv_temp
     deriv[abs(deriv) < np.nanmax(abs(deriv)) * max_percentage] = 0
     if invert:
         func = scipy.signal.argrelmin
