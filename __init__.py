@@ -23,7 +23,7 @@ import scipy.ndimage as ndi
 from .rolling_ball import rolling_ball_filter
 
 
-def find_edge_line(d, max_percentage=0.25, win=11, order=3, poly=3, invert=False, diagnostics=False):
+def find_edge_line(d, max_percentage=0.25, win=11, order=3, poly=3, invert=False, diagnostics=False, top=False):
     """Find the "edge" along a given line"""
     if max_percentage < 0.0:
         return np.nan
@@ -50,6 +50,8 @@ def find_edge_line(d, max_percentage=0.25, win=11, order=3, poly=3, invert=False
                 ax.axvline(m, c="r")
     if len(extrema):
         # return the last extrema, this will need to be made more flexible
+        if top:
+            return extrema[0]
         return extrema[-1]
     else:
         # if no extrema are found try again with a lower threshold
