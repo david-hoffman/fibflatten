@@ -36,7 +36,7 @@ from scipy.ndimage._ni_support import _normalize_sequence
 
 def sq_norm(v):
     """squared norm"""
-    return (v**2).sum(0)
+    return (v ** 2).sum(0)
 
 
 def circumcircle(points, simplex):
@@ -80,8 +80,9 @@ def get_alpha_complex(alpha, points, simplices):
     return alpha_complex, above_right
 
 
-def rolling_ball_filter_accurate(data, ball_radius, roll_along=-1, top=True,
-                                 interpolator=interpolate.interp1d, **kwargs):
+def rolling_ball_filter_accurate(
+    data, ball_radius, roll_along=-1, top=True, interpolator=interpolate.interp1d, **kwargs
+):
     """Rolling ball filter implemented with alpha shapes
     
     Parameters
@@ -155,9 +156,11 @@ def rolling_ball_filter(data, ball_radius, spacing=None, top=False, **kwargs):
     # arrayify radius
     radius = np.asarray(_normalize_sequence(ball_radius, ndim))
     # generate the mesh for the sphere
-    mesh = np.array(np.meshgrid(*[np.arange(-r, r + s, s) for r, s in zip(radius, spacing)], indexing="ij"))
+    mesh = np.array(
+        np.meshgrid(*[np.arange(-r, r + s, s) for r, s in zip(radius, spacing)], indexing="ij")
+    )
     # make the sphere and replace nan with 0
-    structure = 2 * np.sqrt(1 - ((mesh / radius.reshape(-1, *((1,) * ndim)))**2).sum(0))
+    structure = 2 * np.sqrt(1 - ((mesh / radius.reshape(-1, *((1,) * ndim))) ** 2).sum(0))
     structure[~np.isfinite(structure)] = 0
     # roll ball on top or bottom dpending on request
     if not top:
@@ -168,19 +171,20 @@ def rolling_ball_filter(data, ball_radius, spacing=None, top=False, **kwargs):
         # ndi.black_tophat(y, structure=structure, output=background)
         background = ndi.grey_dilation(data, structure=structure, **kwargs)
         background = ndi.grey_erosion(background, structure=structure, **kwargs)
-        
+
     return data - background, background
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # import plotting
     import matplotlib.pyplot as plt
+
     # remove randomness
     np.random.seed(42)
     # generate toy data
     x = np.linspace(-2 * np.pi, 2 * np.pi, 256)
     y = np.sin(10 * x)
-    y *= np.exp(-2 * x**2)
+    y *= np.exp(-2 * x ** 2)
     y += np.poly1d(np.random.randn(3))(x) * 0.01
 
     ball_r = 0.5
